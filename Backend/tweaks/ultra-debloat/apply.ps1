@@ -388,9 +388,13 @@ function Load-OrCreateState {
         try {
             $loaded = Get-Content -LiteralPath $script:Context.StatePath -Raw | ConvertFrom-Json
             if ($loaded.active -eq $true) {
-                $script:State = $loaded
-                $script:State.lastRunAt = (Get-Date).ToString('o')
-                return
+                if ($null -ne $loaded.version -and $loaded.version -eq $script:Config.StateVersion) {
+                    $script:State = $loaded
+                    $script:State.lastRunAt = (Get-Date).ToString('o')
+                    return
+                } else {
+                    Write-Log "Old state version detected. Resetting to default state." 'WARN'
+                }
             }
         }
         catch {
@@ -1690,7 +1694,9 @@ try {
 }
 catch {
     Write-Log ("Fatal error: {0}" -f $_.Exception.Message) 'ERROR'
-    Add-StateWarning -Message ("Fatal error: {0}" -f $_.Exception.Message)
+    if ($null -ne $script:State) {
+        Add-StateWarning -Message ("Fatal error: {0}" -f $_.Exception.Message)
+    }
     throw
 }
 finally {

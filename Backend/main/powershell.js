@@ -39,7 +39,7 @@ export async function executePowerShell(_, props) {
 
     const { stdout, stderr } = await execPromise(
       `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${tempFile}"`,
-      { env: childEnv },
+      { env: childEnv, maxBuffer: 1024 * 1024 * 50 },
     )
 
     await fsp.unlink(tempFile).catch(console.error)

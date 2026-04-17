@@ -96,7 +96,8 @@ async function loadTweaks(forceRefresh = false) {
       const rawApply = await fs.readFile(applyPath, "utf8")
       // Replace $PSScriptRoot with the actual folder path so dependencies can be found
       // Using single quotes to avoid escaping issues in PowerShell
-      psapply = rawApply.replace(/\$PSScriptRoot/g, `'${folder}'`)
+      const escapedFolder = folder.replace(/'/g, "''")
+      psapply = rawApply.replace(/\$PSScriptRoot/gi, `'${escapedFolder}'`)
     } catch (error) {
       if (error.code !== "ENOENT") {
         console.warn(`Error reading apply.ps1 for tweak: ${name}`, error)
@@ -113,7 +114,8 @@ async function loadTweaks(forceRefresh = false) {
 
     try {
       const rawUnapply = await fs.readFile(unapplyPath, "utf8")
-      psunapply = rawUnapply.replace(/\$PSScriptRoot/g, `'${folder}'`)
+      const escapedFolder = folder.replace(/'/g, "''")
+      psunapply = rawUnapply.replace(/\$PSScriptRoot/gi, `'${escapedFolder}'`)
     } catch (error) {
       if (error.code !== "ENOENT") {
         console.warn(`Error reading unapply.ps1 for tweak: ${name}`, error)
