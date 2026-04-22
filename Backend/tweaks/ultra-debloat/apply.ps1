@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 Set-StrictMode -Version Latest
@@ -81,10 +81,16 @@ $script:Config = [ordered]@{
         'Clipchamp.Clipchamp',
         'Microsoft.549981C3F5F10',
         'Microsoft.Copilot',
+        'Microsoft.BingSearch',
+        'Microsoft.GetHelp',
         'Microsoft.Getstarted',
+        'Microsoft.MicrosoftStickyNotes',
         'Microsoft.MicrosoftOfficeHub',
         'Microsoft.Office.OneNote',
         'Microsoft.Office.Sway',
+        'Microsoft.OutlookForWindows',
+        'Microsoft.PowerAutomateDesktop',
+        'Microsoft.Tips',
         'MicrosoftTeams',
         'MSTeams',
         'Microsoft.SkypeApp',
@@ -122,9 +128,12 @@ $script:Config = [ordered]@{
         'king.com.CandyCrushSaga',
         'king.com.CandyCrushSodaSaga',
         'king.com.BubbleWitch3Saga',
-        'Microsoft.BingSearch',
         'Microsoft.BingNews',
         'Microsoft.StartExperiencesApp',
+        'Microsoft.Windows.DevHome',
+        'MicrosoftWindows.Client.Outlook',
+        'MicrosoftCorporationII.MicrosoftFamily',
+        'MicrosoftCorporationII.QuickAssist',
         'MicrosoftWindows.CrossDevice'
     )
     TaskTargets = @(
@@ -239,8 +248,13 @@ $script:Config = [ordered]@{
     PowerSettings = @(
         @{ SubGroup = 'SUB_PROCESSOR'; Setting = 'PROCTHROTTLEMIN'; Value = 100 },
         @{ SubGroup = 'SUB_PROCESSOR'; Setting = 'PROCTHROTTLEMAX'; Value = 100 },
+        @{ SubGroup = 'SUB_PROCESSOR'; Setting = 'PERFBOOSTMODE'; Value = 2 },
+        @{ SubGroup = 'SUB_PROCESSOR'; Setting = 'IDLEDISABLE'; Value = 1 },
+        @{ SubGroup = 'SUB_PROCESSOR'; Setting = 'CPMINCORES'; Value = 100 },
+        @{ SubGroup = 'SUB_PROCESSOR'; Setting = 'CPMAXCORES'; Value = 100 },
         @{ SubGroup = 'SUB_PCIEXPRESS'; Setting = 'ASPM'; Value = 0 },
-        @{ SubGroup = 'SUB_USB'; Setting = 'USBSELECTSUSPEND'; Value = 1 },
+        @{ SubGroup = 'SUB_USB'; Setting = 'USBSELECTSUSPEND'; Value = 0 },
+        @{ SubGroup = 'SUB_DISK'; Setting = 'DISKIDLE'; Value = 0 },
         @{ SubGroup = 'SUB_SLEEP'; Setting = 'STANDBYIDLE'; Value = 0 },
         @{ SubGroup = 'SUB_SLEEP'; Setting = 'HIBERNATEIDLE'; Value = 0 }
     )
@@ -971,13 +985,50 @@ function Get-PowerSettingRecord {
 }
 
 function Get-ActivePowerSchemeGuid {
-    $output = powercfg /getactivescheme
+    $output = powercfg /getactivescheme 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to query the active power scheme: $($output -join ' ')"
+    }
+
     foreach ($line in $output) {
         if ($line -match '([A-Fa-f0-9-]{36})') {
             return $matches[1]
         }
     }
     throw 'Unable to determine the active power scheme.'
+}
+
+function Get-PowerSchemeGuidFromText {
+    param([Parameter(Mandatory)][object[]]$Lines)
+    foreach ($line in $Lines) {
+        if ([string]$line -match '([A-Fa-f0-9-]{36})') {
+            return $matches[1]
+        }
+    }
+    return $null
+}
+
+function Find-PowerSchemeGuidByName {
+    param(
+        [Parameter(Mandatory)][object[]]$Lines,
+        [Parameter(Mandatory)][string[]]$NamePatterns
+    )
+
+    foreach ($line in $Lines) {
+        $text = [string]$line
+        $guidMatch = [regex]::Match($text, '([A-Fa-f0-9-]{36})')
+        if (-not $guidMatch.Success) {
+            continue
+        }
+
+        foreach ($pattern in $NamePatterns) {
+            if ($text -like "*$pattern*") {
+                return $guidMatch.Groups[1].Value
+            }
+        }
+    }
+
+    return $null
 }
 
 function Get-PowerSettingAcValue {
@@ -987,12 +1038,21 @@ function Get-PowerSettingAcValue {
         [Parameter(Mandatory)][string]$Setting
     )
 
-    $output = powercfg /q $SchemeGuid $SubGroup $Setting
-    foreach ($line in $output) {
-        if ($line -match 'Current AC Power Setting Index:\s+0x([0-9a-fA-F]+)') {
-            return [int]("0x{0}" -f $matches[1])
-        }
+    $output = powercfg /q $SchemeGuid $SubGroup $Setting 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to query power setting $SubGroup/$Setting."
     }
+
+    $text = $output -join "`n"
+    $match = [regex]::Match($text, 'Current\s+AC.*?0x([0-9a-fA-F]+)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if (-not $match.Success) {
+        $match = [regex]::Match($text, '0x([0-9a-fA-F]+)')
+    }
+
+    if ($match.Success) {
+        return [int]("0x{0}" -f $match.Groups[1].Value)
+    }
+
     throw "Unable to read power setting $SubGroup/$Setting."
 }
 
@@ -1398,44 +1458,44 @@ function Configure-PowerPlan {
         $script:State.power.previousActiveScheme = Get-ActivePowerSchemeGuid
         Save-State
 
-        $allSchemes = powercfg /list
-        $targetScheme = $null
-        foreach ($line in $allSchemes) {
-            if ($line -match '([A-Fa-f0-9-]{36}).*Ultimate Performance') {
-                $targetScheme = $matches[1]
-                break
-            }
-        }
+        $allSchemes = @(powercfg /list 2>&1)
+        $targetScheme = Find-PowerSchemeGuidByName -Lines $allSchemes -NamePatterns @('Ultimate Performance', 'Ultimate', 'Toi da')
 
         if (-not $targetScheme) {
-            powercfg /duplicatescheme $script:Config.UltimateSchemeGuid | Out-Null
+            $duplicateOutput = @(powercfg /duplicatescheme $script:Config.UltimateSchemeGuid 2>&1)
             if ($LASTEXITCODE -eq 0) {
-                $script:State.power.createdSchemes += $script:Config.UltimateSchemeGuid
-                Save-State
-                $allSchemes = powercfg /list
-                foreach ($line in $allSchemes) {
-                    if ($line -match '([A-Fa-f0-9-]{36}).*Ultimate Performance') {
-                        $targetScheme = $matches[1]
-                        break
-                    }
+                $targetScheme = Get-PowerSchemeGuidFromText -Lines $duplicateOutput
+                if ($targetScheme) {
+                    $script:State.power.createdSchemes += $targetScheme
                 }
+                else {
+                    $script:State.power.createdSchemes += $script:Config.UltimateSchemeGuid
+                }
+                Save-State
+
+                if (-not $targetScheme) {
+                    $allSchemes = @(powercfg /list 2>&1)
+                    $targetScheme = Find-PowerSchemeGuidByName -Lines $allSchemes -NamePatterns @('Ultimate Performance', 'Ultimate', 'Toi da')
+                }
+            }
+            else {
+                Write-Log "Unable to duplicate Ultimate Performance plan: $($duplicateOutput -join ' ')" 'WARN'
             }
         }
 
         if (-not $targetScheme) {
-            foreach ($line in $allSchemes) {
-                if ($line -match '([A-Fa-f0-9-]{36}).*High performance') {
-                    $targetScheme = $matches[1]
-                    break
-                }
-            }
+            $targetScheme = Find-PowerSchemeGuidByName -Lines $allSchemes -NamePatterns @('High performance', 'High Performance', 'Hieu nang cao')
         }
 
         if (-not $targetScheme) {
             $targetScheme = $script:Config.HighPerformanceGuid
         }
 
-        powercfg /setactive $targetScheme | Out-Null
+        $setActiveOutput = @(powercfg /setactive $targetScheme 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            throw "powercfg /setactive failed for [$targetScheme]: $($setActiveOutput -join ' ')"
+        }
+
         $script:State.power.appliedScheme = $targetScheme
         Save-State
         Write-Log "Active power plan set to: $targetScheme" 'OK'
@@ -1450,13 +1510,20 @@ function Configure-PowerPlan {
                 return
             }
 
-            powercfg /setacvalueindex $activeScheme $powerSetting.SubGroup $powerSetting.Setting $powerSetting.Value | Out-Null
+            $setOutput = @(powercfg /setacvalueindex $activeScheme $powerSetting.SubGroup $powerSetting.Setting $powerSetting.Value 2>&1)
+            if ($LASTEXITCODE -ne 0) {
+                throw "Unable to set power setting $($powerSetting.SubGroup)/$($powerSetting.Setting): $($setOutput -join ' ')"
+            }
+
             Write-Log "Power setting updated: $($powerSetting.SubGroup)/$($powerSetting.Setting) -> $($powerSetting.Value)" 'OK'
         }
     }
 
     Invoke-TrackedStep -Name 'Power scheme activation refresh' -ScriptBlock {
-        powercfg /setactive $activeScheme | Out-Null
+        $refreshOutput = @(powercfg /setactive $activeScheme 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            throw "powercfg /setactive refresh failed for [$activeScheme]: $($refreshOutput -join ' ')"
+        }
     }
 
     Invoke-TrackedStep -Name 'Hibernate status' -ScriptBlock {
@@ -1468,7 +1535,10 @@ function Configure-PowerPlan {
         catch {
         }
         Save-State
-        powercfg /hibernate off | Out-Null
+        $hibernateOutput = @(powercfg /hibernate off 2>&1)
+        if ($LASTEXITCODE -ne 0) {
+            throw "powercfg /hibernate off failed: $($hibernateOutput -join ' ')"
+        }
         Write-Log 'Hibernate disabled for desktop / AC profile.' 'OK'
     }
 }

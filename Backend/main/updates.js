@@ -2,6 +2,9 @@ import { app, ipcMain } from "electron"
 import log from "electron-log"
 import { autoUpdater } from "electron-updater"
 
+const TRANSIENT_UPDATE_STATUS_CODES = new Set([429, 500, 502, 503, 504])
+const TEMPORARY_UPDATE_MESSAGE = "Update server is temporarily unavailable. Please try again later."
+
 function normalizeUpdaterError(error) {
   const statusCode = error?.statusCode ?? error?.response?.statusCode
   const statusMessage = error?.statusMessage ?? error?.response?.statusMessage
@@ -14,6 +17,15 @@ function normalizeUpdaterError(error) {
     }
   }
 
+  if (TRANSIENT_UPDATE_STATUS_CODES.has(Number(statusCode))) {
+    return {
+      userMessage: null,
+      logMessage: `Update server temporary failure (${statusCode}${
+        statusMessage ? ` - ${statusMessage}` : ""
+      }): ${message}`,
+    }
+  }
+
   const friendly =
     statusCode != null
       ? `Unable to reach the update server (${statusCode}${
@@ -22,6 +34,11 @@ function normalizeUpdaterError(error) {
       : "Unable to check for updates. Please try again later."
 
   return { userMessage: friendly, logMessage: message }
+}
+
+function normalizeUpdaterErrorForIpc(error) {
+  const normalized = normalizeUpdaterError(error)
+  return normalized.userMessage || TEMPORARY_UPDATE_MESSAGE
 }
 
 export function initAutoUpdater(getMainWindow) {
@@ -74,7 +91,7 @@ export function initAutoUpdater(getMainWindow) {
       const result = await autoUpdater.checkForUpdates()
       return { ok: true, updateInfo: result?.updateInfo ?? null }
     } catch (error) {
-      return { ok: false, error: String(error) }
+      return { ok: false, error: normalizeUpdaterErrorForIpc(error) }
     }
   })
 
@@ -83,7 +100,7 @@ export function initAutoUpdater(getMainWindow) {
       await autoUpdater.downloadUpdate()
       return { ok: true }
     } catch (error) {
-      return { ok: false, error: String(error) }
+      return { ok: false, error: normalizeUpdaterErrorForIpc(error) }
     }
   })
 

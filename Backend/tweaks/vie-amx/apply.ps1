@@ -23,7 +23,7 @@ if (-not $?) {
 }
 
 if ($env:VIEXF_LICENSE_PRO -eq '1') {
-    Write-Host '[vie-amx] Buoc 2/2: Pro — aggressive services + backup C:\VieXF...' -ForegroundColor Yellow
+    Write-Host '[vie-amx] Buoc 2/2: Pro - aggressive services + backup C:\VieXF...' -ForegroundColor Yellow
     $proFile = Join-Path $PSScriptRoot 'pro-stack.ps1'
     if (-not (Test-Path -LiteralPath $proFile)) {
         throw "Thieu pro-stack.ps1 tai $proFile"

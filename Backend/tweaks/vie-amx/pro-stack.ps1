@@ -1,4 +1,4 @@
-# VieXF Pro layer: chạy sau Ultra Debloat. Backup vao C:\VieXF\Backup roi tat service aggresive.
+# VieXF Pro layer: runs after Ultra Debloat. Backs up to C:\VieXF\Backup before aggressive service changes.
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 $script:SkipSvcHostSplit = $false
@@ -27,7 +27,7 @@ function Assert-Admin {
     $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($identity)
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        throw 'Hãy chạy PowerShell bằng quyền Administrator.'
+        throw 'Run PowerShell / VieXF as Administrator.'
     }
 }
 
@@ -45,10 +45,10 @@ function Export-RegistrySafely {
     )
     $null = & reg.exe export $Key $Destination /y 2>$null
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "Đã backup registry: $Key -> $Destination" 'OK'
+        Write-Log "Registry backup saved: $Key -> $Destination" 'OK'
     }
     else {
-        Write-Log "Không backup được registry: $Key" 'WARN'
+        Write-Log "Registry backup skipped: $Key" 'WARN'
     }
 }
 
@@ -56,10 +56,10 @@ function Backup-Bcd {
     $bcdPath = Join-Path $BackupRoot 'BCD-Backup.bcd'
     $null = & bcdedit /export $bcdPath 2>$null
     if ($LASTEXITCODE -eq 0) {
-        Write-Log "Đã backup BCD -> $bcdPath" 'OK'
+        Write-Log "BCD backup saved -> $bcdPath" 'OK'
     }
     else {
-        Write-Log 'Không thể backup BCD. Bỏ qua phần backup BCD.' 'WARN'
+        Write-Log 'BCD backup skipped.' 'WARN'
     }
 }
 
@@ -67,7 +67,7 @@ function Backup-PowerSchemes {
     $outFile = Join-Path $BackupRoot 'powercfg-list-before.txt'
     $list = & powercfg /list 2>&1
     $list | Out-File -FilePath $outFile -Encoding UTF8
-    Write-Log "Đã lưu danh sách power plan hiện tại -> $outFile" 'OK'
+    Write-Log "Power plan list saved -> $outFile" 'OK'
 }
 
 function Initialize-Backup {
@@ -90,7 +90,7 @@ function Initialize-Backup {
 function Try-CreateRestorePoint {
     Enable-ComputerRestore -Drive "$($env:SystemDrive)\" | Out-Null
     Checkpoint-Computer -Description "$Brand Restore Point" -RestorePointType 'MODIFY_SETTINGS' | Out-Null
-    Write-Log 'Đã tạo restore point.' 'OK'
+    Write-Log 'Restore point created.' 'OK'
 }
 
 function Set-RegDword {
@@ -107,7 +107,7 @@ function Set-RegDword {
         Write-Log "Registry DWORD: $Path :: $Name = $Value" 'OK'
     }
     catch {
-        Write-Log "Không thể set registry $Path :: $Name : $($_.Exception.Message)" 'WARN'
+        Write-Log "Unable to set registry $Path :: $Name : $($_.Exception.Message)" 'WARN'
     }
 }
 
@@ -125,12 +125,12 @@ function Set-ServiceStartup {
         Write-Log "Service: $Name -> $StartupType" 'OK'
     }
     catch {
-        Write-Log "Service không tồn tại hoặc không chỉnh được: $Name" 'WARN'
+        Write-Log "Service missing or not editable: $Name" 'WARN'
     }
 }
 
 function Set-OriginalServiceProfile {
-    Write-Log 'Đang áp dụng nhóm service gốc từ file .bat theo kiểu mạnh tay. Cấu hình này có thể làm hỏng Wi‑Fi, update, print, đăng nhập, log hệ thống và nhiều tính năng khác.' 'WARN'
+    Write-Log 'Applying aggressive OriginalService profile. This can affect Wi-Fi, updates, printing, sign-in, logs, and other Windows features.' 'WARN'
 
     $originalServiceStates = @(
         @{ Name = 'AarSvc'; Type = 'Disabled' }, @{ Name = 'ADPSvc'; Type = 'Disabled' }, @{ Name = 'AJRouter'; Type = 'Disabled' },
@@ -213,10 +213,10 @@ function Set-OriginalServiceProfile {
         Set-RegDword -Path 'HKLM:\SYSTEM\CurrentControlSet\Control' -Name 'SvcHostSplitThresholdInKB' -Value 4294967295
     }
 
-    # Giữ đúng ý của file gốc: AppInfo bị tắt nên UAC cũng bị tắt.
+    # Keep the original profile behavior: AppInfo is disabled, so UAC is disabled too.
     Set-RegDword -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name 'EnableLUA' -Value 0
 
-    Write-Log 'Hoàn tất nhóm OriginalAggressive.' 'OK'
+    Write-Log 'OriginalAggressive profile completed.' 'OK'
 }
 
 function Invoke-VieAmxProStack {
@@ -227,7 +227,7 @@ function Invoke-VieAmxProStack {
         Try-CreateRestorePoint
     }
     catch {
-        Write-Log "Tạo restore point thất bại: $($_.Exception.Message)" 'WARN'
+        Write-Log "Restore point failed: $($_.Exception.Message)" 'WARN'
     }
     Set-OriginalServiceProfile
     Write-Log 'VieXF Pro (tren nen Ultra Debloat) hoan tat. Nen restart may.' 'OK'

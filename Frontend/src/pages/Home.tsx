@@ -86,8 +86,8 @@ const StatCard = memo(({
           </div>
           {trend && (
             <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-md ${trend === 'up' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
-                trend === 'down' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
-                  'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+              trend === 'down' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' :
+                'bg-rose-500/10 text-rose-400 border border-rose-500/20'
               }`}>
               {trend === 'up' || trend === 'down' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
               {trendValue}
@@ -207,7 +207,7 @@ export default function Home() {
             </button>
             <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 transition-all border border-cyan-500/30 shadow-[0_0_15px_-5px_rgba(34,211,238,0.4)] active:scale-95">
               <Sparkles size={16} fill="currentColor" />
-              <span className="text-sm font-bold tracking-wider uppercase">Boost Performance</span>
+              <span className="text-sm font-bold tracking-wider uppercase">Boost FPS</span>
             </button>
           </div>
         </div>
@@ -232,11 +232,11 @@ export default function Home() {
           />
           <StatCard
             title="Cấp Bậc VIP"
-            value="1,973"
+            value="2,021"
             icon={Crown}
             colorClass="bg-amber-400"
             trend="up"
-            trendValue="+12.8%"
+            trendValue="+36.2%"
             actionButton={
               <a
                 href="https://discord.com/channels/1274585470633906176/1466020101554835466"
@@ -262,8 +262,8 @@ export default function Home() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={`relative px-6 py-2 rounded-lg text-sm font-bold tracking-wider uppercase transition-all duration-300 outline-none ${activeTab === tab.id
-                      ? `bg-white/10 text-white shadow-md border border-white/10`
-                      : `text-white/40 hover:text-white/80 hover:bg-white/5 border border-transparent`
+                    ? `bg-white/10 text-white shadow-md border border-white/10`
+                    : `text-white/40 hover:text-white/80 hover:bg-white/5 border border-transparent`
                     }`}
                 >
                   {tab.label}

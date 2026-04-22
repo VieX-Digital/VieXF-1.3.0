@@ -18,6 +18,7 @@ import Settings from "./pages/Settings"
 import Backup from "./pages/Backup"
 import Optimize from "./pages/Optimize"
 import Profiles from "./pages/Profiles"
+import Gamemode from "./pages/Gamemode"
 import Diagnostics from "./pages/Diagnostics"
 import Recovery from "./pages/Recovery"
 import Logs from "./pages/Logs"
@@ -141,6 +142,7 @@ function App() {
                             <Route path="/apps" element={<Apps />} />
                             <Route path="/settings" element={<Settings />} />
                             <Route path="/optimize" element={<Optimize />} />
+                            <Route path="/gamemode" element={<Gamemode />} />
                             <Route path="/operations" element={<Navigate to="/optimize" replace />} />
                             <Route path="/profiles" element={<Profiles />} />
                             <Route path="/diagnostics" element={<Diagnostics />} />

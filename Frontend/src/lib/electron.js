@@ -51,6 +51,40 @@ function withTimeout(promise, timeoutMs, channel) {
   ])
 }
 
+function getInvokePolicy(channel) {
+  if (channel.startsWith("system-metrics:")) {
+    return { retries: 0, timeoutMs: 3000 }
+  }
+
+  if (
+    channel === "tweak:set" ||
+    channel === "tweak:set-batch" ||
+    channel === "tweak:toggle" ||
+    channel === "tweak:apply" ||
+    channel === "tweak:unapply"
+  ) {
+    return { retries: 0, timeoutMs: 20 * 60 * 1000 }
+  }
+
+  if (channel === "tweaks:fetch") {
+    return { retries: 1, timeoutMs: 30000 }
+  }
+
+  if (channel.startsWith("game-mode:")) {
+    return { retries: 0, timeoutMs: 60000 }
+  }
+
+  if (channel === "updater:download") {
+    return { retries: 0, timeoutMs: 30 * 60 * 1000 }
+  }
+
+  if (channel === "updater:check") {
+    return { retries: 0, timeoutMs: 45000 }
+  }
+
+  return { retries: 1, timeoutMs: 10000 }
+}
+
 export function minimize() {
   getIpcRenderer()?.send("window-minimize")
 }
@@ -67,8 +101,7 @@ export async function invoke({ channel, payload }) {
   const ipc = getIpcRenderer()
   const correlationId = createCorrelationId(channel)
   if (ipc?.invoke) {
-    const retries = channel.startsWith("system-metrics:") ? 0 : 1
-    const timeoutMs = channel.startsWith("system-metrics:") ? 3000 : 10000
+    const { retries, timeoutMs } = getInvokePolicy(channel)
     let lastError
 
     for (let attempt = 0; attempt <= retries; attempt++) {

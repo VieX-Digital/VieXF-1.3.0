@@ -16,6 +16,7 @@ import { setupDNSHandlers } from "./dnsHandler"
 import { setupCleanHandlers } from "./cleanHandler"
 import { setupUtilitiesHandlers } from "./utilitiesHandler"
 import { setupAppsHandlers } from "./appsHandler"
+import { setupGameModeHandlers } from "./gamemode.js"
 import Store from "electron-store"
 import { startDiscordRPC, stopDiscordRPC } from "./rpc"
 import { initAutoUpdater, triggerAutoUpdateCheck } from "./updates.js"
@@ -288,6 +289,7 @@ app.whenReady().then(() => {
     setupCleanHandlers()
     setupUtilitiesHandlers()
     setupAppsHandlers()
+    setupGameModeHandlers()
     setupAuthHandlers()
   }, 0)
 
